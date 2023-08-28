@@ -1,0 +1,276 @@
+#!/bin/sh
+
+# prerequisite programs
+# http://komary.net/sh_ivtool/
+SH_IVTOOL=/mnt/ext1/system/bin/sh_ivtool
+# http://komary.net/unzip/
+UNZIP=/mnt/ext1/system/bin/unzip
+# http://komary.net/zip/
+ZIP=/mnt/ext1/system/bin/zip
+
+# default directories
+sysbin="/mnt/ext1/system/bin"
+config="/mnt/ext1/system/config"
+openwith="/mnt/ext1/system/config/handlers.cfg"
+usrapps="/mnt/ext1/applications"
+
+# remove "Edit Book info" as default "open with" program for epub - next open of book will be with ereader
+if [ -e "${openwith}" ]; then
+  mv "$openwith" "${openwith}.old"
+  IFS=''; cat "${openwith}.old" |
+  while read data; do
+    if echo "$data" | grep -q "Edit Book info"; then :
+    else echo "${data}" >> "$openwith"; fi
+  done
+fi
+if [ -e "${openwith}.old" ]; then rm "${openwith}.old"; fi
+
+# if script is ran from applications, treat as initial setup
+picview=/ebrmain/cramfs/bin/picviewer.app
+bootlogo=/ebrmain/logo/bootlogo/PocketBook.bmp
+scriptDir=$(dirname "$0")
+scriptName=$(basename "$0" .app)
+if [ "$scriptDir" == "/mnt/ext1/applications" ]; then
+	if [ ! -e "${config}/extensions.cfg" ];then
+    cp "/ebrmain/config/extensions.cfg" "${config}/extensions.cfg"
+	fi
+	# adds edit-epub option to extensions.cfg
+	mv "${config}/extensions.cfg" "${config}/extensions.cfg.old"
+	IFS=''; cat "${config}/extensions.cfg.old" |
+	while read data; do
+		if echo "$data" | grep -q "epub:@EPUB_file"; then
+		if echo "$data" | grep -q "Edit Book info"; then
+			# epub line on .cfg already correct
+			echo "${data}" >> "${config}/extensions.cfg"
+		else
+			# add edit-epub to .cfg
+			echo "${data%:*},Edit Book info:ICON_EPUB" >> "${config}/extensions.cfg"
+		fi
+		else
+			# non epub related line
+			echo "${data}" >> "${config}/extensions.cfg"
+		fi
+	done
+	if [ -e "${config}/extensions.cfg.old" ]; then rm "${config}/extensions.cfg.old"; fi
+  
+	# unpack pre-reqs (sh-ivtool, zip and unzip) to system/bin
+	TarGz=`awk '/^__TARGZ__/ {print NR + 1; exit 0; }' $0`
+	tail -n+$TarGz $0 | tar xz -C /var/tmp
+	tar xzf /var/tmp/files
+	if [ -e "/var/tmp/files" ]; then rm "/var/tmp/files"; fi
+	
+	# copy script to system/bin, delete orig, then reboot
+	if [ ! -e "$sysbin/$scriptName" ]; then
+		cp "${scriptDir}/${scriptName}.app" "$sysbin/Edit Book info"
+		rm "${scriptDir}/${scriptName}.app"
+	fi
+	dialog 1 "" "Setup Complete!" "RESTART"
+	if [ $? = 1 ]; then $picview "$bootlogo" & iv2sh reboot; exit 0; fi
+	iv2sh reboot
+	exit 0
+fi
+
+# detect if series template exists and if user selects option extracts book data from it
+proceed=0; while [ $proceed == 0 ]; do
+	search_dir="/mnt/ext1/Series Templates"
+	fname=""
+	sname=""
+	title=""
+	seriesName=""
+	seriesNumb=""
+	genre=""
+	message=""
+	jump=0
+	skip=0
+	pass=0
+	count1=0
+	noTemplate=0
+	
+	# option for quick exit if launched in error
+	message="- Book info Editor - \n\nChoose method of edit:"
+	dialog 1 "" "$(echo -e $message)" "Manual" "Template" "Exit"
+	ANS=$?
+	if [ $ANS == 2 ]; then pass=1; fi
+	if [ $ANS == 3 ]; then exit 0; fi
+	
+	if [ $pass == 1 ]; then
+	if [ -d "$search_dir" ]; then
+		count1=`ls -1 $search_dir/*.tif 2>/dev/null | wc -l`
+		if [ $count1 == 0 ]; then 
+			noTemplate=1
+		else
+			count2=0
+			results="Enter series template number or enter details manually:"$(echo -e "\n ")
+			for entry in "$search_dir"/*.tif; do
+				let count2++
+				entry=`basename "${entry}" .tif`
+				results=${results}$(echo -e "\n${count2} - ${entry}")
+			done
+			dialog 0 "" "$results" "Enter Number" "Enter Manually" "Exit"
+			ANS=$?
+			if [ $ANS == 3 ]; then exit 0; fi
+			if [ $ANS == 1 ]; then
+				selectNumb=`$SH_IVTOOL -n "Enter Series Template number:"`
+				count3=0
+				for entry in "$search_dir"/*.tif; do
+					let count3++
+					entry=`basename "${entry}"`
+					if [ $count3 == $selectNumb ]; then break; fi
+				done
+				jump=1
+				fname=$(sed '1q;d' "$search_dir/$entry")
+				sname=$(sed '2q;d' "$search_dir/$entry")
+				seriesName=$(sed '3q;d' "$search_dir/$entry")
+				genre=$(sed '4q;d' "$search_dir/$entry")
+				title=`$SH_IVTOOL -t "Enter book title:   (leave blank to skip)"`
+				seriesNumb=`$SH_IVTOOL -n "Enter book number in series:   (leave blank to skip)"`
+			fi
+		fi 
+	else
+		noTemplate=1
+	fi
+	if [ $noTemplate == 1 ]; then		
+		dialog 3 "" "No Series Templates found!" "Enter manually" "Exit"
+		ANS=$?
+		if [ $ANS == 2 ]; then exit 0; fi
+	fi
+	fi
+
+	# get user input for book meta-data - section skipped if series template option selected
+	if [ $jump == 0 ]; then
+		fname=`$SH_IVTOOL -t "Enter author's firstname:   (leave blank to skip)"`
+		if [ "$fname" != "" ]; then sname=`$SH_IVTOOL -t "Enter author's surname:   (leave blank to skip)"`; fi
+		title=`$SH_IVTOOL -t "Enter book title:   (leave blank to skip)"`
+		seriesName=`$SH_IVTOOL -t "Enter name of book series:   (leave blank to skip)"`
+		if [ "$seriesName" != "" ]; then seriesNumb=`$SH_IVTOOL -n "Enter book number in series:   (leave blank to skip)"`; fi
+		genre=`$SH_IVTOOL -t "Enter genre of book:   (leave blank to skip)"`
+		# create series template if sufficient user input gained
+		if [ $fname != "" -a $seriesName != "" -a $genre != "" ]; then
+			if [ ! -d "$search_dir" ]; then mkdir "$search_dir"; fi
+			echo $fname > "$search_dir/$fname $sname - $seriesName.tif"
+			echo $sname >> "$search_dir/$fname $sname - $seriesName.tif"
+			echo $seriesName >> "$search_dir/$fname $sname - $seriesName.tif"
+			echo $genre >> "$search_dir/$fname $sname - $seriesName.tif"
+		fi
+	fi
+
+	# write output for details to be changed
+	if [ "$fname" != "" ]; then message="Author: ${fname} ${sname}"; fi
+	if [ "$title" != "" ]; then message=${message}$(echo -e "\nTitle:     ${title}"); fi
+	if [ "$seriesName" != "" ]; then message=${message}$(echo -e "\nSeries:  ${seriesName}"); fi
+	if [ "$seriesNumb" != "" ]; then message=${message}$(echo -e "\nBook#: ${seriesNumb}"); fi
+	if [ "$genre" != "" ]; then message=${message}$(echo -e "\nGenre:  ${genre}"); fi
+
+	# "no changes made" exit option
+	if [ "$fname" == "" -a "$title" == "" -a "$seriesName" == "" -a "$genre" == "" ]; then
+		dialog 1 "" "No changes made" "Start over" "Exit"
+		if [ $? == 2 ]; then exit 0; fi
+		skip=1
+	fi
+
+	# confirmation
+	if [ $skip == 0 ]; then
+		dialog 0 "" "$message" "Accept" "Start over" "Exit"
+		ANS=$?
+		if [ $ANS == 1 ]; then break; fi
+		if [ $ANS == 3 ]; then exit 0; fi
+	fi
+done
+
+# This is where we temporarily unpack the EPUB files.
+# (It has to be inside a Unix directory, because unpacking and packing
+#  within a FAT directory seems to produce invalid EPUB files.)
+BASENAME=`basename "$1"`
+TMPDIR="/tmp/${BASENAME}.dir"
+
+# Delete the temporary files later, no matter how we leave.
+trap 'rm -rf "$TMPDIR"' 0
+
+# Unpack the files.
+mkdir -p "$TMPDIR"
+cd "$TMPDIR"
+$UNZIP -q -u "$1" -d "$TMPDIR"
+if [ $? -gt 0 ]; then
+	$SH_IVTOOL -s "Problems while unzipping.  Giving up!"
+	exit -1
+fi
+
+# backup and remove data from .opf
+for f in `find "./" -iname "*.opf" -type f -print`; do
+	cp "$f" "${f}.orig"
+    mv "$f" "${f}.old"
+	IFS=''; cat "${f}.old" |
+    while read data; do
+		if echo "$data" | grep -q "dc:title"; then
+			if [ "$title" == "" ]; then echo "${data}" >> "${f}"; fi
+		elif echo "$data" | grep -q "dc:creator"; then
+			if [ "$fname" == "" ]; then echo "${data}" >> "${f}"; fi
+		elif echo "$data" | grep -q "dc:subject"; then
+			if [ "$genre" == "" ]; then echo "${data}" >> "${f}"; fi
+		elif echo "$data" | grep -q "calibre:series"; then
+			if [ "$seriesName" == "" ]; then echo "${data}" >> "${f}"; fi
+		else
+			echo "${data}" >> "${f}"
+		fi
+	done
+done
+rm "${f}.old"
+
+# add user input to .opf
+count=0
+for f in `find "./" -iname "*.opf" -type f -print`; do
+	# backup/keep original .opf
+    mv "$f" "${f}.old"
+	# create new .opf
+	IFS=''; cat "${f}.old" |
+    while read data; do
+		if echo "$data" | grep -q "metadata"; then
+			let count++
+			if [ $count == 1 ]; then
+				echo "${data}" >> "${f}"
+				if [ "$title" != "" ]; then echo '<dc:title>'$title'</dc:title>"' >> "${f}"; fi
+				if [ "$fname" != "" ]; then echo '<dc:creator opf:role="aut" opf:file-as="'$sname', '$fname'">'$fname' '$sname'</dc:creator>' >> "${f}"; fi
+				if [ "$genre" != "" ]; then echo '<dc:subject>'$genre'</dc:subject>' >> "${f}"; fi
+				if [ "$seriesName" != "" ]; then echo '<meta name="calibre:series" content="'$seriesName'"/>' >> "${f}"; fi
+				if [ "$seriesName" != "" ]; then echo '<meta name="calibre:series_index" content="'$seriesNumb'"/>' >> "${f}"; fi
+			else
+				echo "${data}" >> "${f}"
+			fi
+		else
+			echo "${data}" >> "${f}"
+        fi
+    done
+done
+rm "${f}.old"
+
+# Get the name of the output file
+NEWFILE=`basename "$1"`
+RESP=`$SH_IVTOOL -q "Overwrite the original EPUB file?"`
+if [ $? -ne 0  -o  "$RESP" == 'n' ]; then
+  repeat=0
+  while [ "${repeat}" == "0" ]; do
+    NEWFILE=`$SH_IVTOOL -t "Enter new filename (without .epub)"`.epub
+    if [ $? -ne 0  -o "$NEWFILE" == ".epub" ]; then
+      RESP=`$SH_IVTOOL -q "No filename entered.  Exit edit-epub?"`
+      if [ "$RESP" == 'y' ]; then exit -1; fi
+	else repeat=1
+    fi
+  done
+fi
+
+# Zip up the contents
+$ZIP "$NEWFILE" -0 mimetype
+$ZIP -r "$NEWFILE" * -x mimetype
+
+# Move the new file into the same directory as the old file
+# (overwriting it if the names are the same)
+mv "$NEWFILE" `dirname "$1"`
+if [ "${BASENAME}" == "${NEWFILE}" ]; then
+  $SH_IVTOOL -s "EPUB file overwritten."
+else
+  $SH_IVTOOL -s "New EPUB file created."
+fi
+exit 0
+__TARGZ__
+
+< prerequisite files in tar file >
