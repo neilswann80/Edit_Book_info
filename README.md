@@ -5,15 +5,15 @@ Series Title
 Number in Series
 Genre
 
-Installation
+_Installation_ 
 Simply place "setup.app" and run it. This will add the prerequisite files the script needs to your device and initiate a restart.
 
-Use
+_Use_ 
 Simply long-press a book from the Home Screen or Library and you will have the option to:
 Open with > Edit Book info
 where you will be prompted to enter the new details for the attributes listed above. Once complete you'll have the option to overwrite the existing epub file or create an epub file by entering a new filename.
 
-Book series
+_Book series_ 
 Whenever you modify the following three book attributes:
 Author Name
 Series Title
