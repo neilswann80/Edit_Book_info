@@ -1,10 +1,10 @@
-Here is a quick and simple way to edit specific book info directly from a PocketBook, focusing on the PocketBook library categories of:
-Author Name
-Book Title
-Series Title
-Number in Series
-Genre
-
+Here is a quick and simple way to edit specific book info directly from a PocketBook, focusing on the PocketBook library categories of:<br>
+Author Name<br>
+Book Title<br>
+Series Title<br>
+Number in Series<br>
+Genre<br>
+<br>
 _Installation_
 Simply place "setup.app" and run it. This will add the prerequisite files the script needs to your device and initiate a restart.
 
