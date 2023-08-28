@@ -5,7 +5,7 @@ Series Title
 Number in Series
 Genre
 
-_Installation_ 
+_Installation_ /n
 Simply place "setup.app" and run it. This will add the prerequisite files the script needs to your device and initiate a restart.
 
 _Use_ 
