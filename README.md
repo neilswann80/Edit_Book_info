@@ -1,3 +1,6 @@
+***Edit Book Info - PocketBook script***
+<br>
+<br>
 Here is a quick and simple way to edit specific book info directly from a PocketBook, focusing on the PocketBook library categories of:<br>
 Author Name<br>
 Book Title<br>
@@ -5,17 +8,17 @@ Series Title<br>
 Number in Series<br>
 Genre<br>
 <br>
-Installation<br>
+***Installation***<br>
 Simply place "setup.app" and run it. This will add the prerequisite files the script needs to your device and initiate a restart.
 <br>
 <br>
-Use<br>
+***Use***<br>
 Simply long-press a book from the Home Screen or Library and you will have the option to:<br>
 Open with > Edit Book info<br>
 where you will be prompted to enter the new details for the attributes listed above. Once complete you'll have the option to overwrite the existing epub file or create an epub file by entering a new filename.
 <br>
 <br>
-Book series<br>
+***Book series***<br>
 Whenever you modify the following three book attributes:<br>
 Author Name<br>
 Series Title<br>
