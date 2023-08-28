@@ -23,5 +23,5 @@ a series template text file is created (in "/mnt/ext1/Series Templates"). This a
 Please leave a comment on whether the package works for you, and/or if you have any suggestions for changes/additions. [You will likely need to be on firmware 6+.]
 
 Thanks to:
-This script is based on rkomar's "edit-epub" script and uses his sh_ivtool, zip and unzip binaries available from HERE
+This script is based on rkomar's "edit-epub" script and uses his sh_ivtool, zip and unzip binaries.
 This script also uses a method of merging a TAR file into the script to unpack prerequisite files; functionality I borrowed from ezdiy's jailbreak installer.
